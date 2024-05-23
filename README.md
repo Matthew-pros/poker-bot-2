@@ -1,7 +1,11 @@
 # poker-bot-2
 
+Install req.
 
-Použití
+```bash 
+pip install tensorflow opencv-python pyautogui stable-baselines3 gym
+```
+
 **Příprava dat:**
 
 Spusťte notebooks/data_preparation.ipynb pro zachytávání screenshotů.
