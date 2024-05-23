@@ -1,35 +1,58 @@
+# Import potřebných knihoven
+import pandas as pd
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, models
-import os
-import cv2
-import numpy as np
+from sklearn.preprocessing import StandardScaler
 
 # Načtení a příprava dat
 data_dir = 'data/raw'
-images = []
-labels = []  # Toto bude potřeba manuálně označit nebo použít nástroj pro anotaci
+train_file = f'{data_dir}/poker-hand-training.csv'
+test_file = f'{data_dir}/poker-hand-testing.csv'
 
-for file in os.listdir(data_dir):
-    img_path = os.path.join(data_dir, file)
-    image = cv2.imread(img_path)
-    image = cv2.resize(image, (128, 128))
-    images.append(image)
-    # Předpokládaná funkce pro načtení labelů
-    labels.append(get_label_from_filename(file))
+# Načtení trénovacích a testovacích dat
+train_data = pd.read_csv(train_file)
+test_data = pd.read_csv(test_file)
 
-images = np.array(images)
-labels = np.array(labels)
+# Extrakce funkcí (features) a cílových hodnot (labels) z trénovacích dat
+X_train = train_data.iloc[:, :-1].values  # Všechny sloupce kromě posledního (Poker Hand)
+y_train = train_data.iloc[:, -1].values   # Poslední sloupec (Poker Hand)
+
+# Extrakce funkcí (features) a cílových hodnot (labels) z testovacích dat
+X_test = test_data.iloc[:, :-1].values  # Všechny sloupce kromě posledního (Poker Hand)
+y_test = test_data.iloc[:, -1].values   # Poslední sloupec (Poker Hand)
+
+print(f'Trénovací data: {X_train.shape}, {y_train.shape}')
+print(f'Testovací data: {X_test.shape}, {y_test.shape}')
+
+# Normalizace dat
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# Převod na formát vhodný pro TensorFlow
+X_train = np.array(X_train)
+y_train = np.array(y_train)
+X_test = np.array(X_test)
+y_test = np.array(y_test)
+
+# Změna rozměrů dat pro vstup do CNN (pokud budete používat CNN)
+X_train = X_train.reshape(X_train.shape[0], 5, 2, 1)
+X_test = X_test.reshape(X_test.shape[0], 5, 2, 1)
+
+print(f'Počet trénovacích příkladů: {X_train.shape[0]}')
+print(f'Počet testovacích příkladů: {X_test.shape[0]}')
 
 # Definice modelu
 model = models.Sequential([
-    layers.Conv2D(32, (3, 3), activation='relu', input_shape=(128, 128, 3)),
-    layers.MaxPooling2D((2, 2)),
-    layers.Conv2D(64, (3, 3), activation='relu'),
-    layers.MaxPooling2D((2, 2)),
-    layers.Conv2D(64, (3, 3), activation='relu'),
+    layers.Conv2D(32, (2, 2), activation='relu', input_shape=(5, 2, 1)),
+    layers.MaxPooling2D((1, 1)),
+    layers.Conv2D(64, (2, 2), activation='relu'),
+    layers.MaxPooling2D((1, 1)),
+    layers.Conv2D(64, (2, 2), activation='relu'),
     layers.Flatten(),
     layers.Dense(64, activation='relu'),
-    layers.Dense(num_classes, activation='softmax')
+    layers.Dense(10, activation='softmax')  # 10 tříd pro pokerové kombinace
 ])
 
 model.compile(optimizer='adam',
@@ -37,7 +60,7 @@ model.compile(optimizer='adam',
               metrics=['accuracy'])
 
 # Trénování modelu
-model.fit(images, labels, epochs=10, validation_split=0.2)
+model.fit(X_train, y_train, epochs=10, validation_data=(X_test, y_test))
 
 # Uložení modelu
 model.save('src/vision/poker_model.h5')
